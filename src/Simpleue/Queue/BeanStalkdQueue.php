@@ -17,11 +17,13 @@ class BeanStalkdQueue implements Queue
     private $sourceQueue;
     private $failedQueue;
     private $errorQueue;
+    private $timeout;
 
-    public function __construct($beanStalkdClient, $queueName)
+    public function __construct($beanStalkdClient, $queueName, $timeout = 30)
     {
         $this->beanStalkdClient = $beanStalkdClient;
         $this->setQueues($queueName);
+        $this->timeout = $timeout;
     }
 
 
@@ -35,7 +37,7 @@ class BeanStalkdQueue implements Queue
     public function getNext()
     {
         $this->beanStalkdClient->watch($this->sourceQueue);
-        return $this->beanStalkdClient->reserve(0);
+        return $this->beanStalkdClient->reserve($this->timeout);
     }
 
     public function successful($job)

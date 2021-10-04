@@ -4,6 +4,7 @@ namespace Simpleue\Queue;
 
 use Pheanstalk\Job;
 use Pheanstalk\Pheanstalk;
+use Simpleue\Locker\BaseLocker;
 
 /**
  * Class BeanstalkdQueue
@@ -18,6 +19,10 @@ class BeanStalkdQueue implements Queue
     private $failedQueue;
     private $errorQueue;
     private $timeout;
+    /**
+     * @var BaseLocker
+     */
+    private $locker;
 
     public function __construct($beanStalkdClient, $queueName, $timeout = 30)
     {
@@ -25,7 +30,13 @@ class BeanStalkdQueue implements Queue
         $this->setQueues($queueName);
         $this->timeout = $timeout;
     }
-
+    /**
+     * @param BaseLocker $locker
+     */
+    public function setLocker($locker)
+    {
+        $this->locker = $locker;
+    }
 
     protected function setQueues($queueName)
     {
@@ -37,7 +48,15 @@ class BeanStalkdQueue implements Queue
     public function getNext()
     {
         $this->beanStalkdClient->watch($this->sourceQueue);
-        return $this->beanStalkdClient->reserve($this->timeout);
+        $job = $this->beanStalkdClient->reserve($this->timeout);
+        if ($this->locker && $this->locker->lock($job) === false) {
+            throw new \RuntimeException(
+                'Beanstalkd msg lock cannot acquired!'
+                .' LockId: ' . $this->locker->getJobUniqId($job)
+                .' LockerInfo: ' . $this->locker->getLockerInfo()
+            );
+        }
+        return $job;
     }
 
     public function successful($job)

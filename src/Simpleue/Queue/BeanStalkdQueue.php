@@ -30,19 +30,20 @@ class BeanStalkdQueue implements Queue
         $this->setQueues($queueName);
         $this->timeout = $timeout;
     }
-    /**
-     * @param BaseLocker $locker
-     */
-    public function setLocker($locker)
-    {
-        $this->locker = $locker;
-    }
 
     protected function setQueues($queueName)
     {
         $this->sourceQueue = $queueName;
         $this->failedQueue = $queueName . '-failed';
         $this->errorQueue = $queueName . '-error';
+    }
+
+    /**
+     * @param BaseLocker $locker
+     */
+    public function setLocker($locker)
+    {
+        $this->locker = $locker;
     }
 
     public function getNext()
@@ -52,8 +53,8 @@ class BeanStalkdQueue implements Queue
         if ($this->locker && $this->locker->lock($job) === false) {
             throw new \RuntimeException(
                 'Beanstalkd msg lock cannot acquired!'
-                .' LockId: ' . $this->locker->getJobUniqId($job)
-                .' LockerInfo: ' . $this->locker->getLockerInfo()
+                . ' LockId: ' . $this->locker->getJobUniqId($job)
+                . ' LockerInfo: ' . $this->locker->getLockerInfo()
             );
         }
         return $job;
@@ -61,7 +62,16 @@ class BeanStalkdQueue implements Queue
 
     public function successful($job)
     {
-        return $this->beanStalkdClient->delete($job);
+        return $this->delete($job);
+    }
+
+    private function delete($job)
+    {
+        try {
+            $this->beanStalkdClient->delete($job);
+        } catch (\Exception $e) {
+        }
+        return true;
     }
 
     /**
@@ -71,8 +81,7 @@ class BeanStalkdQueue implements Queue
     public function failed($job)
     {
         $this->beanStalkdClient->putInTube($this->failedQueue, $job->getData());
-        $this->beanStalkdClient->delete($job);
-        return;
+        $this->delete($job);
     }
 
     /**
@@ -82,8 +91,7 @@ class BeanStalkdQueue implements Queue
     public function error($job)
     {
         $this->beanStalkdClient->putInTube($this->errorQueue, $job->getData());
-        $this->beanStalkdClient->delete($job);
-        return;
+        $this->delete($job);
     }
 
     public function nothingToDo()
@@ -93,7 +101,7 @@ class BeanStalkdQueue implements Queue
 
     public function stopped($job)
     {
-        return $this->beanStalkdClient->delete($job);
+        return $this->delete($job);
     }
 
     /**

@@ -71,6 +71,7 @@ class QueueWorker
                 $job = $this->queueHandler->getNext();
             } catch (\Exception $exception) {
                 $this->log('error', 'Error getting data. Message: '.$exception->getMessage());
+                $this->queueHandler->stopped();
                 continue;
             }
             if ($this->isValidJob($job) && $this->jobHandler->isMyJob($this->queueHandler->getMessageBody($job))) {

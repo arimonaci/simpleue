@@ -51,11 +51,7 @@ class BeanStalkdQueue implements Queue
         $this->beanStalkdClient->watch($this->sourceQueue);
         $job = $this->beanStalkdClient->reserve($this->timeout);
         if ($this->locker && $this->locker->lock($job) === false) {
-            throw new \RuntimeException(
-                'Beanstalkd msg lock cannot acquired!'
-                . ' LockId: ' . $this->locker->getJobUniqId($job)
-                . ' LockerInfo: ' . $this->locker->getLockerInfo()
-            );
+            return false;
         }
         return $job;
     }

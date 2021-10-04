@@ -3,11 +3,12 @@
  * User: Javier Bravo
  * Date: 9/01/15.
  */
+
 namespace Simpleue\Worker;
 
-use Simpleue\Queue\Queue;
-use Simpleue\Job\Job;
 use Psr\Log\LoggerInterface;
+use Simpleue\Job\Job;
+use Simpleue\Queue\Queue;
 
 class QueueWorker
 {
@@ -22,13 +23,38 @@ class QueueWorker
     {
         $this->queueHandler = $queueHandler;
         $this->jobHandler = $jobHandler;
-        $this->maxIterations = (int) $maxIterations;
+        $this->maxIterations = (int)$maxIterations;
         $this->iterations = 0;
         $this->logger = false;
         $this->terminated = false;
 
         if ($handleSignals) {
             $this->handleSignals();
+        }
+    }
+
+    protected function handleSignals()
+    {
+        if (!function_exists('pcntl_signal')) {
+            $this->log(
+                'error',
+                'Please make sure that \'pcntl\' is enabled if you want us to handle signals'
+            );
+
+            throw new \Exception('Please make sure that \'pcntl\' is enabled if you want us to handle signals');
+        }
+
+        declare(ticks=1);
+        pcntl_signal(SIGTERM, [$this, 'terminate']);
+        pcntl_signal(SIGINT, [$this, 'terminate']);
+
+        $this->log('debug', 'Finished Setting up Handler for signals SIGTERM and SIGINT');
+    }
+
+    protected function log($type, $message)
+    {
+        if ($this->logger) {
+            $this->logger->$type($message);
         }
     }
 
@@ -48,7 +74,7 @@ class QueueWorker
 
     public function setMaxIterations($maxIterations)
     {
-        $this->maxIterations = (int) $maxIterations;
+        $this->maxIterations = (int)$maxIterations;
 
         return $this;
     }
@@ -69,9 +95,12 @@ class QueueWorker
             ++$this->iterations;
             try {
                 $job = $this->queueHandler->getNext();
+                if ($job === false) {
+                    $this->queueHandler->stopped($job);
+                    continue;
+                }
             } catch (\Exception $exception) {
-                $this->log('error', 'Error getting data. Message: '.$exception->getMessage());
-                $this->queueHandler->stopped();
+                $this->log('error', 'Error getting data. Message: ' . $exception->getMessage());
                 continue;
             }
             if ($this->isValidJob($job) && $this->jobHandler->isMyJob($this->queueHandler->getMessageBody($job))) {
@@ -88,13 +117,6 @@ class QueueWorker
         }
         $this->log('debug', 'Queue Worker finished.');
         $this->finished();
-    }
-
-    protected function log($type, $message)
-    {
-        if ($this->logger) {
-            $this->logger->$type($message);
-        }
     }
 
     protected function starting()
@@ -120,43 +142,20 @@ class QueueWorker
         return $job !== false;
     }
 
-    protected function handleSignals()
-    {
-        if (!function_exists('pcntl_signal')) {
-            $this->log(
-                'error',
-                'Please make sure that \'pcntl\' is enabled if you want us to handle signals'
-            );
-
-            throw new \Exception('Please make sure that \'pcntl\' is enabled if you want us to handle signals');
-        }
-
-        declare(ticks = 1);
-        pcntl_signal(SIGTERM, [$this, 'terminate']);
-        pcntl_signal(SIGINT,  [$this, 'terminate']);
-
-        $this->log('debug', 'Finished Setting up Handler for signals SIGTERM and SIGINT');
-    }
-
-    protected function terminate()
-    {
-        $this->log('debug', 'Caught signals. Trying a Graceful Exit');
-        $this->terminated = true;
-    }
-
     private function manageJob($job)
     {
         try {
             $jobDone = $this->jobHandler->manage($this->queueHandler->getMessageBody($job));
             if ($jobDone) {
-                $this->log('debug', 'Successful Job: '.$this->queueHandler->toString($job));
+                $this->log('debug', 'Successful Job: ' . $this->queueHandler->toString($job));
                 $this->queueHandler->successful($job);
             } else {
-                $this->log('debug', 'Failed Job:'.$this->queueHandler->toString($job));
+                $this->log('debug', 'Failed Job:' . $this->queueHandler->toString($job));
                 $this->queueHandler->failed($job);
             }
         } catch (\Exception $exception) {
-            $this->log('error', 'Error Managing data. Data :'.$this->queueHandler->toString($job).'. Message: '.$exception->getMessage());
+            $this->log('error',
+                'Error Managing data. Data :' . $this->queueHandler->toString($job) . '. Message: ' . $exception->getMessage());
             $this->queueHandler->error($job);
         }
     }
@@ -164,5 +163,11 @@ class QueueWorker
     protected function finished()
     {
         return true;
+    }
+
+    protected function terminate()
+    {
+        $this->log('debug', 'Caught signals. Trying a Graceful Exit');
+        $this->terminated = true;
     }
 }

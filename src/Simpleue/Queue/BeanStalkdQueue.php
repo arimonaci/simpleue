@@ -50,9 +50,14 @@ class BeanStalkdQueue implements Queue
     {
         $this->beanStalkdClient->watch($this->sourceQueue);
         $job = $this->beanStalkdClient->reserve($this->timeout);
-        if ($this->locker && $this->locker->lock($job) === false) {
+        try {
+            if ($this->locker && $this->locker->lock($job) === false) {
+                return [false, $job];
+            }
+        } catch (\Exception $e) {
             return [false, $job];
         }
+
         return [true, $job];
     }
 

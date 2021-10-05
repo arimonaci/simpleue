@@ -8,7 +8,6 @@ namespace Simpleue\Worker;
 
 use Psr\Log\LoggerInterface;
 use Simpleue\Job\Job;
-use Simpleue\Queue\BeanstalkQueueException;
 use Simpleue\Queue\Queue;
 
 class QueueWorker
@@ -94,15 +93,12 @@ class QueueWorker
         $this->starting();
         while ($this->isRunning()) {
             ++$this->iterations;
-            try {
-                $job = $this->queueHandler->getNext();
-            } catch (BeanstalkQueueException $beanstalkQueueException) {
-                $this->queueHandler->stopped($beanstalkQueueException->getMessage());
-                continue;
-            } catch (\Exception $exception) {
-                $this->log('error', 'Error getting data. Message: ' . $exception->getMessage());
+            [$status, $job] = $this->queueHandler->getNext();
+            if (!$status) {
+                $this->queueHandler->stopped($job);
                 continue;
             }
+
             if ($this->isValidJob($job) && $this->jobHandler->isMyJob($this->queueHandler->getMessageBody($job))) {
                 if ($this->jobHandler->isStopJob($this->queueHandler->getMessageBody($job))) {
                     $this->queueHandler->stopped($job);

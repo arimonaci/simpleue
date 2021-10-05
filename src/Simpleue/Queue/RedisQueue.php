@@ -8,89 +8,108 @@ namespace Simpleue\Queue;
 
 use Predis\Client;
 
-class RedisQueue implements Queue {
+class RedisQueue implements Queue
+{
 
     private $redisClient;
     private $sourceQueue;
     private $maxWaitingSeconds;
 
-    public function __construct(Client $redisClient, $queueName, $maxWaitingSeconds = 30) {
+    public function __construct(Client $redisClient, $queueName, $maxWaitingSeconds = 30)
+    {
         $this->redisClient = $redisClient;
         $this->sourceQueue = $queueName;
         $this->maxWaitingSeconds = $maxWaitingSeconds;
     }
 
-    public function setRedisClient(Client $redisClient) {
+    public function setRedisClient(Client $redisClient)
+    {
         $this->redisClient = $redisClient;
         return $this;
     }
 
-    public function setQueueName($queueName) {
+    public function setQueueName($queueName)
+    {
         $this->sourceQueue = $queueName;
         return $this;
     }
 
-    public function setMaxWaitingSeconds($maxWaitingSeconds) {
+    public function setMaxWaitingSeconds($maxWaitingSeconds)
+    {
         $this->maxWaitingSeconds = $maxWaitingSeconds;
         return $this;
     }
 
-    public function getNext() {
-        $queueItem = $this->redisClient->brpoplpush($this->getSourceQueue(), $this->getProcessingQueue(), $this->maxWaitingSeconds);
-        return ($queueItem !== null) ? $queueItem : false;
+    public function getNext()
+    {
+        $queueItem = $this->redisClient->brpoplpush($this->getSourceQueue(), $this->getProcessingQueue(),
+            $this->maxWaitingSeconds);
+        return ($queueItem !== null) ? [true, $queueItem] : [false, null];
     }
 
-    public function successful($job) {
+    protected function getSourceQueue()
+    {
+        return $this->sourceQueue;
+    }
+
+    protected function getProcessingQueue()
+    {
+        return $this->sourceQueue . "-processing";
+    }
+
+    public function successful($job)
+    {
         $this->redisClient->lrem($this->getProcessingQueue(), 1, $job);
         return;
     }
 
-    public function failed($job) {
+    public function failed($job)
+    {
         $this->redisClient->lpush($this->getFailedQueue(), $job);
         $this->redisClient->lrem($this->getProcessingQueue(), 1, $job);
         return;
     }
 
-    public function error($job) {
+    protected function getFailedQueue()
+    {
+        return $this->sourceQueue . "-failed";
+    }
+
+    public function error($job)
+    {
         $this->redisClient->lpush($this->getErrorQueue(), $job);
         $this->redisClient->lrem($this->getProcessingQueue(), 1, $job);
         return;
     }
 
-    public function nothingToDo() {
+    protected function getErrorQueue()
+    {
+        return $this->sourceQueue . "-error";
+    }
+
+    public function nothingToDo()
+    {
         $this->redisClient->ping();
     }
 
-    public function stopped($job) {
+    public function stopped($job)
+    {
         $this->redisClient->lrem($this->getProcessingQueue(), 1, $job);
         return;
     }
 
-    public function getMessageBody($job) {
+    public function getMessageBody($job)
+    {
         return $job;
     }
 
-    protected function getSourceQueue() {
-        return $this->sourceQueue;
-    }
-
-    protected function getProcessingQueue() {
-        return $this->sourceQueue . "-processing";
-    }
-
-    protected function getFailedQueue() {
-        return $this->sourceQueue . "-failed";
-    }
-
-    protected function getErrorQueue() {
-        return $this->sourceQueue . "-error";
-    }
-
-    public function toString($job) {
+    public function toString($job)
+    {
         return $job;
     }
 
-    public function sendJob($job) {
+    public function sendJob($job)
+    {
         $this->redisClient->lpush($this->getSourceQueue(), $job);
     }
 

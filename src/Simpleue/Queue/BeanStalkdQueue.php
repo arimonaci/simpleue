@@ -72,7 +72,9 @@ class BeanStalkdQueue implements Queue
     private function delete($job)
     {
         try {
-            $this->beanStalkdClient->delete($job);
+            if ($job) {
+                $this->beanStalkdClient->delete($job);
+            }
         } catch (\Exception $e) {
         }
         return true;

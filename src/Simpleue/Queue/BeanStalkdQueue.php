@@ -137,6 +137,6 @@ class BeanStalkdQueue implements Queue
     public function sendJob($job)
     {
         $this->beanStalkdClient->useTube($this->sourceQueue);
-        return $this->beanStalkdClient->put($job->getData());
+        $this->beanStalkdClient->put($job);
     }
 }

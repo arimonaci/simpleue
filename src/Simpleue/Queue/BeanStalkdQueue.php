@@ -87,7 +87,7 @@ class BeanStalkdQueue implements Queue
     public function failed($job)
     {
         $this->beanStalkdClient->useTube($this->failedQueue);
-        $this->beanStalkdClient->put($this->failedQueue, $job->getData());
+        $this->beanStalkdClient->put($job->getData());
         $this->delete($job);
     }
 
@@ -98,7 +98,7 @@ class BeanStalkdQueue implements Queue
     public function error($job)
     {
         $this->beanStalkdClient->useTube($this->errorQueue);
-        $this->beanStalkdClient->put($this->errorQueue, $job->getData());
+        $this->beanStalkdClient->put($job->getData());
         $this->delete($job);
     }
 
@@ -137,6 +137,6 @@ class BeanStalkdQueue implements Queue
     public function sendJob($job)
     {
         $this->beanStalkdClient->useTube($this->sourceQueue);
-        return $this->beanStalkdClient->put($this->sourceQueue, $job->getData());
+        return $this->beanStalkdClient->put($job->getData());
     }
 }

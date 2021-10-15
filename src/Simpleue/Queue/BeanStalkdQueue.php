@@ -49,7 +49,7 @@ class BeanStalkdQueue implements Queue
     public function getNext()
     {
         $this->beanStalkdClient->watch($this->sourceQueue);
-        $job = $this->beanStalkdClient->reserve($this->timeout);
+        $job = $this->beanStalkdClient->reserveWithTimeout($this->timeout);
         if (!$job) {
             return [false, $job];
         }
@@ -86,7 +86,8 @@ class BeanStalkdQueue implements Queue
      */
     public function failed($job)
     {
-        $this->beanStalkdClient->putInTube($this->failedQueue, $job->getData());
+        $this->beanStalkdClient->useTube($this->failedQueue);
+        $this->beanStalkdClient->put($this->failedQueue, $job->getData());
         $this->delete($job);
     }
 
@@ -96,7 +97,8 @@ class BeanStalkdQueue implements Queue
      */
     public function error($job)
     {
-        $this->beanStalkdClient->putInTube($this->errorQueue, $job->getData());
+        $this->beanStalkdClient->useTube($this->errorQueue);
+        $this->beanStalkdClient->put($this->errorQueue, $job->getData());
         $this->delete($job);
     }
 
@@ -134,6 +136,7 @@ class BeanStalkdQueue implements Queue
      */
     public function sendJob($job)
     {
-        return $this->beanStalkdClient->putInTube($this->sourceQueue, $job);
+        $this->beanStalkdClient->useTube($this->sourceQueue);
+        return $this->beanStalkdClient->put($this->sourceQueue, $job->getData());
     }
 }

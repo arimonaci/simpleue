@@ -22,7 +22,7 @@
         "phpunit/phpunit": "4.0.*",
         "predis/predis": "^1.0",
         "aws/aws-sdk-php": "^3.9",
-        "pda/pheanstalk": "^3.1"
+        "pda/pheanstalk": "^v4.0.3"
     },
     "autoload-dev": {
         "psr-4": {"Simpleue\\": "tests/Simpleue"}
